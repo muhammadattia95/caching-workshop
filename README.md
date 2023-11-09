@@ -65,7 +65,7 @@ Everyone will need:
 
 2. **Configure Redis for Your Spring Boot Application:**
 
-   Open your project's `src/main/resources/application.properties` file and add the following Redis and H2 configuration:
+   Open your project's `src/main/resources/application.yml` file and add the following Redis and H2 configuration:
 
    ```yml
 	spring:
