@@ -402,4 +402,4 @@ Use tools like Postman or Curl to make GET requests to retrieve product listings
 
 Monitor the Redis cache to see how data is cached (you can use Redis CLI or Another Redis software Download it from the [Another Redis software](https://github.com/qishibo/AnotherRedisDesktopManager) ), and observe that changes are reflected in the cache and the database.
 
-This example demonstrates a simplified implementation of an e-commerce product catalog using Spring Boot and Redis with read-aside and write-through caching.
+This example demonstrates a simplified implementation of an e-commerce product catalog using Spring Boot and Redis with read-aside and write-through backend caching strategies.
