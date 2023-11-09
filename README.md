@@ -3,8 +3,6 @@ Workshop Materials: https://github.com/MuhammadAttia/caching-workshop
 
 Muhammad Attia - Lead Software Engineer @ ELM
 
-## What You Will Do
-
 ## Doing the Workshop on Your Own
 
 ### problem Statment 
@@ -43,13 +41,13 @@ Everyone will need:
 
 1. **Use Spring Initializer:**
 
-   - Visit [Spring Initializer](https://start.spring.io/) / open intellij
+   - Visit [Spring Initializer](https://start.spring.io/) / open IntelliJ
    - Choose project type: Maven Project.
    - Language: Java.
    - Spring Boot version: Latest stable version.
    - Group: com.example.
    - Artifact: product-management.
-   - Add dependencies: "Spring Web," "Spring Data JPA," "H2 Database," and "Spring Data Redis."
+   - Add dependencies: "Spring Web," "Spring Data JPA," "H2 Database," Lombok ", and "Spring Data Redis."
 
 2. **Generate Project:**
 
@@ -67,99 +65,118 @@ Everyone will need:
 
 2. **Configure Redis for Your Spring Boot Application:**
 
-   Open your project's `src/main/resources/application.properties` file and add the following Redis configuration:
+   Open your project's `src/main/resources/application.properties` file and add the following Redis and H2 configuration:
 
    ```properties
-   spring.redis.host=localhost
-   spring.redis.port=6379
+	spring.data.redis.host=localhost
+	spring.data.redis.port=6379
+	spring.datasource.url=jdbc:h2:mem:testdb
+	spring.datasource.driverClassName=org.h2.Driver
+	spring.datasource.username=sa
+	spring.datasource.password=password
+	spring.h2.console.enabled=true
+	spring.h2.console.path=/h2-console
    ```
-## step 4: update the pom file
+   3. *** Add Redis Config
+	create config package and on this package add the Redis config class
+	```java
+	 @Configuration
+	public class RedisConfig {
+	
+	    @Bean
+	    public RedisTemplate<String, Product> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
+	        RedisTemplate<String, Product> redisTemplate = new RedisTemplate<>();
+	        redisTemplate.setConnectionFactory(redisConnectionFactory);
+	        // Configure key and value serializers if necessary
+	        redisTemplate.setKeySerializer(new StringRedisSerializer());
+	        redisTemplate.setValueSerializer(new Jackson2JsonRedisSerializer<>(Product.class));
+	        return redisTemplate;
+	    }
+	
+	}
+	```
+## Step 4: update the pom file
 
 ```xml
 
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>2.2.1.RELEASE</version>
-		<relativePath/> <!-- lookup parent from repository -->
-	</parent>
-	<groupId>com.attia</groupId>
-	<artifactId>product-management</artifactId>
-	<version>1.0.1-SNAPSHOT</version>
-	<name>product-management</name>
-	<description>user-management</description>
-	<properties>
-		<java.version>17</java.version>
-	</properties>
-	<dependencies>
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-web</artifactId>
-		</dependency>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.1.5</version>
+        <relativePath/> <!-- lookup parent from repository -->
+    </parent>
+    <groupId>com.attia</groupId>
+    <artifactId>caching-poc</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>caching-poc</name>
+    <description>caching-poc</description>
+    <properties>
+        <java.version>21</java.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
 
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-test</artifactId>
-			<scope>test</scope>
-		</dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
 
-		<!-- JPA Data (We are going to use Repositories, Entities, Hibernate, etc...) -->
-		<dependency>
-			<groupId>org.springframework.boot</groupId>
-			<artifactId>spring-boot-starter-data-jpa</artifactId>
-		</dependency>
-		<dependency>
-			<groupId>com.h2database</groupId>
-			<artifactId>h2</artifactId>
-			<scope>runtime</scope>
-		</dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+    </dependencies>
 
-	</dependencies>
-
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.springframework.boot</groupId>
-				<artifactId>spring-boot-maven-plugin</artifactId>
-			</plugin>
-			<plugin>
-				<groupId>org.openapitools</groupId>
-				<artifactId>openapi-generator-maven-plugin</artifactId>
-				<version>6.0.1</version>
-				<executions>
-					<execution>
-						<goals>
-							<goal>generate</goal>
-						</goals>
-						<configuration>
-							<inputSpec>${project.basedir}/OpenAPI/emApi.yaml</inputSpec>
-							<generatorName>spring</generatorName>
-							<!-- Source generation only -->
-							<generateApiTests>false</generateApiTests>
-							<generateModelTests>false</generateModelTests>
-							<generateModelDocumentation>true</generateModelDocumentation>
-							<generateApiDocumentation>true</generateApiDocumentation>
-
-							<supportingFilesToGenerate>
-								ApiUtil.java
-							</supportingFilesToGenerate>
-							<configOptions>
-								<delegatePattern>false</delegatePattern>
-								<interfaceOnly>true</interfaceOnly>
-							</configOptions>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-
-		</plugins>
-	</build>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
+
 
 ```
 
@@ -169,6 +186,10 @@ Create a Product entity that represents the product details:
 
 ```java
 @Entity
+@Setter
+@Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -178,54 +199,97 @@ public class Product {
     private double price;
     private boolean available;
 
-    // Getters and setters
 }
 ```
 ## Step 6: Create a Product Repository
 Create a repository interface for accessing the product data:
 
 ```java
+@Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 }
-Step 7: Implement Product Service
+```
+## Step 7: Implement Product Service
 Create a ProductService that handles both read and write operations. We will use write-through caching for product updates.
 
-java
-Copy code
+```java
+
 @Service
 public class ProductService {
-    @Autowired
-    private ProductRepository productRepository;
+    private final ProductRepository productRepository;
 
-    @Autowired
-    private RedisTemplate<String, Product> redisTemplate;
+    private final RedisTemplate<String, Product> redisTemplate;
 
+    private static final String PRODUCT_CACHE_KEY = "products";
+
+    public ProductService(ProductRepository productRepository, RedisTemplate<String, Product> redisTemplate) {
+        this.productRepository = productRepository;
+        this.redisTemplate = redisTemplate;
+    }
+
+    // cache aside -> read from cache if there is a miss go to DB
     public List<Product> getAllProducts() {
-        String cacheKey = "allProducts";
-        List<Product> cachedProducts = (List<Product>) redisTemplate.opsForValue().get(cacheKey);
+        List<Product> cachedProducts = redisTemplate.opsForList().range(PRODUCT_CACHE_KEY, 0, -1);
 
-        if (cachedProducts != null) {
+        // check cache
+        if (cachedProducts != null && !cachedProducts.isEmpty()) {
             return cachedProducts;
         }
 
-        List<Product> products = productRepository.findAll();
+        // get products from DB
+        List<Product> products = getProductsFromDB();
 
         // Cache the product listings with an expiration time
-        redisTemplate.opsForValue().set(cacheKey, products, Duration.ofMinutes(10));
+        setProductsInCache(products);
 
         return products;
     }
 
+    public void setProductsInCache(List<Product> products) {
+        // Set the list of products in the cache with a specified key and expiration time
+        redisTemplate.opsForList().rightPushAll(PRODUCT_CACHE_KEY, products);
+        redisTemplate.expire(PRODUCT_CACHE_KEY, Duration.ofMinutes(10));
+    }
+
+    public List<Product> getProductsFromDB() {
+        // Simulate fetching products from the database
+        try {
+            Thread.sleep(5000);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        return productRepository.findAll();
+    }
+
+    // Write through
     public Product updateProduct(Product product) {
         // Update the product in the database
         Product updatedProduct = productRepository.save(product);
 
         // Update the product in the cache
-        redisTemplate.opsForValue().set("product:" + updatedProduct.getId(), updatedProduct, Duration.ofMinutes(10));
+        List<Product> cachedProducts = redisTemplate.opsForList().range(PRODUCT_CACHE_KEY, 0, -1);
+
+        if (cachedProducts != null) {
+            cachedProducts.removeIf(p -> p.getId().equals(updatedProduct.getId()));
+            cachedProducts.add(updatedProduct);
+
+            // Clear the existing cache
+            redisTemplate.delete(PRODUCT_CACHE_KEY);
+
+            // Update the cache with the modified list
+            redisTemplate.opsForList().rightPushAll(PRODUCT_CACHE_KEY, cachedProducts);
+            redisTemplate.expire(PRODUCT_CACHE_KEY, Duration.ofMinutes(10));
+        }
 
         return updatedProduct;
     }
+
+
+    public Optional<Product> getProductById(Long productId) {
+        return productRepository.findById(productId);
+    }
 }
+
 ```
 ## Step 8: Create REST API Endpoints
 Create REST API endpoints to retrieve product listings and update product details:
@@ -234,26 +298,87 @@ Create REST API endpoints to retrieve product listings and update product detail
 @RestController
 @RequestMapping("/products")
 public class ProductController {
-    @Autowired
-    private ProductService productService;
+    private final ProductService productService;
+
+    public ProductController(ProductService productService) {
+        this.productService = productService;
+    }
 
     @GetMapping
     public List<Product> getAllProducts() {
         return productService.getAllProducts();
     }
 
-    @PutMapping
-    public Product updateProduct(@RequestBody Product product) {
-        return productService.updateProduct(product);
+    @PutMapping("/{productId}")
+    public ResponseEntity<Product> updateProduct(@PathVariable Long productId, @RequestBody Product updatedProduct) {
+        Optional<Product> productOptional = productService.getProductById(productId);
+
+        if (productOptional.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Product product = productOptional.get();
+
+        // Update the product details
+        product.setName(updatedProduct.getName());
+        product.setDescription(updatedProduct.getDescription());
+        product.setPrice(updatedProduct.getPrice());
+        product.setAvailable(updatedProduct.isAvailable());
+
+        // Save the updated product
+        Product updated = productService.updateProduct(product);
+
+        return ResponseEntity.ok(updated);
     }
+
 }
 ```
-## Step 9: build and Run the Application
-Start your Spring Boot application, and it will be accessible at http://localhost:8080.
+## Step 9 : Update the main class by adding some product to DB for testing purposes 
+
+```java
+	@SpringBootApplication
+	public class CachingPocApplication implements CommandLineRunner {
+	
+	    private final ProductRepository productRepository;
+	
+	    public CachingPocApplication(ProductRepository productRepository) {
+		this.productRepository = productRepository;
+	    }
+	
+	    public static void main(String[] args) {
+		SpringApplication.run(CachingPocApplication.class, args);
+	    }
+	
+	    @Override
+	    public void run(String... args) throws Exception {
+		insertSampleProducts();
+	    }
+	
+	    private void insertSampleProducts() {
+		// Create 10 sample products
+		List<Product> sampleProducts = Arrays.asList(
+			new Product(1L, "Laptop", "Powerful laptop with high performance", 1200.0, true),
+			new Product(2L, "Smartphone", "Latest smartphone with advanced features", 800.0, true),
+			new Product(3L, "Headphones", "Wireless over-ear headphones with noise cancellation", 150.0, true),
+			new Product(4L, "Smartwatch", "Fitness and health tracking smartwatch", 200.0, true),
+			new Product(5L, "Tablet", "Lightweight and portable tablet", 400.0, true),
+			new Product(6L, "Gaming Console", "Next-gen gaming console for immersive gaming experience", 500.0, true),
+			new Product(7L, "Camera", "High-resolution digital camera for professional photography", 1000.0, true),
+			new Product(8L, "Wireless Router", "High-speed wireless router for seamless internet connectivity", 80.0, true),
+			new Product(9L, "Bluetooth Speaker", "Portable Bluetooth speaker with rich sound quality", 50.0, true),
+			new Product(10L, "External Hard Drive", "Large capacity external hard drive for data storage", 120.0, true)
+		);
+		// Insert some products into the database
+		productRepository.saveAll(sampleProducts);
+	    }
+	}
+```
+## Step 10: build and Run the Application
+Start your Spring Boot application, and it will be accessible at http://localhost:8080, and DB on http://localhost:8080/h2-console
 
 ## Testing
 Use tools like Postman or curl to make GET requests to retrieve product listings and PUT requests to update product details.
 
-Monitor the Redis cache to see how data is cached, and observe that changes are reflected in the cache and the database.
+Monitor the Redis cache to see how data is cached (you can use redis CLI or another redis software), and observe that changes are reflected in the cache and the database.
 
 This example demonstrates a simplified implementation of an e-commerce product catalog using Spring Boot and Redis with read-aside and write-through caching.
