@@ -14,11 +14,7 @@ In an e-commerce platform product catalog. often experience heavy read traffic a
 In this scenario, read-aside caching is used to optimize the read-heavy operations, serving users with frequently accessed data quickly from the cache. Write-through caching ensures that data consistency is maintained when product updates occur, preventing the cache from serving stale information.
 This combination allows the e-commerce platform to deliver a responsive user experience while keeping the product catalog data up to date. It strikes a balance between optimizing read performance and maintaining data integrity, making it a suitable strategy for this real-life use case.
 
-This guide will help you set up a Spring Boot project that uses Spring Data, Redis for caching, and H2 as an in-memory database. We'll create a simple product catalog management application and apply caching strategies. 
-
-The guide covers creating a Spring Boot project, configuring Redis, building entities and repositories, implementing caching strategies, and testing the application.
-
-I'll walk you through building an e-commerce product catalog application using Spring Boot and Redis for caching. This example will cover read-aside and write-through caching for product listings and updates. Make sure you have Redis installed and running on your system.
+This guide will help you set up a Spring Boot project that uses Spring Data, Redis for caching, and H2 as an in-memory database. We'll create a simple product catalog management application implementing product listings and update product details using read-aside and write-through caching strategies.
 
 ## Prerequisites
 Everyone will need:
