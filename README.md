@@ -25,7 +25,7 @@ Everyone will need:
 
 - Basic knowledge of Java, and Spring boot (Basics ).
 
-- [JDK 8 or higher](https://openjdk.java.net/install/index.html) installed. **Ensure you have a JDK installed and not just a JRE**
+- [JDK 17 or higher](https://openjdk.java.net/install/index.html) installed. **Ensure you have a JDK installed and not just a JRE**
 - [docker](https://docs.docker.com/install/) installed.
 - [redis](https://hub.docker.com/_/redis) installed.
 - [maven](https://maven.apache.org/install.html) installed.
@@ -33,7 +33,7 @@ Everyone will need:
 
 ## Step 1: Set Up the Development Environment
 
-- **Install Java:** Ensure you have Java 8 or later installed on your system.
+- **Install Java:** Ensure you have Java 17 or later installed on your system.
 
 - **Install Maven:** Install Apache Maven as your build tool. Download it from the [Apache Maven website](https://maven.apache.org/download.cgi).
 
@@ -45,7 +45,7 @@ Everyone will need:
    - Choose project type: Maven Project.
    - Language: Java.
    - Spring Boot version: Latest stable version.
-   - Group: com.example.
+   - Group: com.attia.
    - Artifact: product-management.
    - Add dependencies: "Spring Web," "Spring Data JPA," "H2 Database," Lombok ", and "Spring Data Redis."
 
@@ -67,15 +67,22 @@ Everyone will need:
 
    Open your project's `src/main/resources/application.properties` file and add the following Redis and H2 configuration:
 
-   ```properties
-	spring.data.redis.host=localhost
-	spring.data.redis.port=6379
-	spring.datasource.url=jdbc:h2:mem:testdb
-	spring.datasource.driverClassName=org.h2.Driver
-	spring.datasource.username=sa
-	spring.datasource.password=password
-	spring.h2.console.enabled=true
-	spring.h2.console.path=/h2-console
+   ```yml
+	spring:
+	  data:
+	    redis:
+	      host: localhost
+	      port: 6379
+	  datasource:
+	    url: jdbc:h2:mem:product-db
+	    driverClassName: org.h2.Driver
+	    username: sa
+	    password: password
+	  h2:
+	    console:
+	      enabled: true
+	      path: /h2-console
+      
    ```
    3. *** Add Redis Config
 	create config package and on this package add the Redis config class
@@ -110,10 +117,10 @@ Everyone will need:
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.attia</groupId>
-    <artifactId>caching-poc</artifactId>
+    <artifactId>product-management</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>caching-poc</name>
-    <description>caching-poc</description>
+    <name>product-management</name>
+    <description>product-management</description>
     <properties>
         <java.version>21</java.version>
     </properties>
@@ -261,34 +268,48 @@ public class ProductService {
         return productRepository.findAll();
     }
 
-    // Write through
+    // Write through -> write on cache then write to DB.
     public Product updateProduct(Product product) {
-        // Update the product in the database
-        Product updatedProduct = productRepository.save(product);
-
-        // Update the product in the cache
-        List<Product> cachedProducts = redisTemplate.opsForList().range(PRODUCT_CACHE_KEY, 0, -1);
-
-        if (cachedProducts != null) {
-            cachedProducts.removeIf(p -> p.getId().equals(updatedProduct.getId()));
-            cachedProducts.add(updatedProduct);
-
-            // Clear the existing cache
-            redisTemplate.delete(PRODUCT_CACHE_KEY);
-
-            // Update the cache with the modified list
-            redisTemplate.opsForList().rightPushAll(PRODUCT_CACHE_KEY, cachedProducts);
-            redisTemplate.expire(PRODUCT_CACHE_KEY, Duration.ofMinutes(10));
-        }
-
-        return updatedProduct;
+        updateProductInCache(product);
+        return productRepository.save(product);
     }
+
+    private void updateProductInCache(Product product) {
+        int index = findProductIndexInCache(product.getId());
+
+        if (index != -1) {
+            // Update the product in the cached list at the specific index
+            updateCachedProductAtIndex(index, product);
+        }
+    }
+
+    private int findProductIndexInCache(Long productId) {
+        List<Product> cachedProducts = getCachedProducts();
+
+        for (int i = 0; i < cachedProducts.size(); i++) {
+            if (Objects.equals(cachedProducts.get(i).getId(), productId)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private List<Product> getCachedProducts() {
+        return redisTemplate.opsForList().range(PRODUCT_CACHE_KEY, 0, -1);
+    }
+
+    private void updateCachedProductAtIndex(int index, Product product) {
+        redisTemplate.opsForList().set(PRODUCT_CACHE_KEY, index, product);
+        redisTemplate.expire(PRODUCT_CACHE_KEY, Duration.ofMinutes(10));
+    }
+
 
 
     public Optional<Product> getProductById(Long productId) {
         return productRepository.findById(productId);
     }
 }
+
 
 ```
 ## Step 8: Create REST API Endpoints
@@ -337,16 +358,16 @@ public class ProductController {
 
 ```java
 	@SpringBootApplication
-	public class CachingPocApplication implements CommandLineRunner {
+	public class ProductManagementApplication implements CommandLineRunner {
 	
 	    private final ProductRepository productRepository;
 	
-	    public CachingPocApplication(ProductRepository productRepository) {
+	    public ProductManagementApplication(ProductRepository productRepository) {
 		this.productRepository = productRepository;
 	    }
 	
 	    public static void main(String[] args) {
-		SpringApplication.run(CachingPocApplication.class, args);
+		SpringApplication.run(ProductManagementApplication.class, args);
 	    }
 	
 	    @Override
@@ -373,12 +394,12 @@ public class ProductController {
 	    }
 	}
 ```
-## Step 10: build and Run the Application
+## Step 10: Build and Run the Application
 Start your Spring Boot application, and it will be accessible at http://localhost:8080, and DB on http://localhost:8080/h2-console
 
 ## Testing
-Use tools like Postman or curl to make GET requests to retrieve product listings and PUT requests to update product details.
+Use tools like Postman or Curl to make GET requests to retrieve product listings and PUT requests to update product details.
 
-Monitor the Redis cache to see how data is cached (you can use redis CLI or another redis software), and observe that changes are reflected in the cache and the database.
+Monitor the Redis cache to see how data is cached (you can use Redis CLI or Another Redis software Download it from the [Another Redis software](https://github.com/qishibo/AnotherRedisDesktopManager) ), and observe that changes are reflected in the cache and the database.
 
 This example demonstrates a simplified implementation of an e-commerce product catalog using Spring Boot and Redis with read-aside and write-through caching.
