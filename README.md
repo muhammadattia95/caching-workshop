@@ -83,19 +83,58 @@ Everyone will need:
    3. *** Add Redis Config
 	create config package and on this package add the Redis config class
 	```java
-	 @Configuration
+ 	@Configuration
 	public class RedisConfig {
-	
-	    @Bean
-	    public RedisTemplate<String, Product> redisTemplate(RedisConnectionFactory redisConnectionFactory) {
-	        RedisTemplate<String, Product> redisTemplate = new RedisTemplate<>();
-	        redisTemplate.setConnectionFactory(redisConnectionFactory);
-	        // Configure key and value serializers if necessary
-	        redisTemplate.setKeySerializer(new StringRedisSerializer());
-	        redisTemplate.setValueSerializer(new Jackson2JsonRedisSerializer<>(Product.class));
-	        return redisTemplate;
-	    }
-	
+
+    private static final String PRODUCT_CACHE_KEY = "products";
+
+    private final ProductRepository productRepository;
+
+
+    public RedisConfig(ProductRepository productRepository) {
+        this.productRepository = productRepository;
+    }
+
+
+    @Bean
+    public RMapCache<Long, Product> productRMapCache(RedissonClient redissonClient) {
+        return redissonClient.getMapCache(PRODUCT_CACHE_KEY,
+                MapOptions.<Long, Product>defaults()
+                        .writer(getMapWriter())
+                        .writeMode(MapOptions.WriteMode.WRITE_THROUGH));
+    }
+    @Bean
+    public RedissonClient redissonClient() {
+        final Config config = new Config();
+        config.setCodec(new JsonJacksonCodec());
+        config.useSingleServer()
+                .setAddress("redis://localhost:6379");
+        return Redisson.create(config);
+    }
+
+
+    private MapWriter<Long, Product> getMapWriter() {
+        return new MapWriter<>() {
+            @Override
+            public void write(final Map<Long, Product> map) {
+                map.forEach((k, v) -> {
+                    // Update the database here
+                    updateDatabase(v);
+                });
+            }
+
+            @Override
+            public void delete(Collection<Long> keys) {
+                // Delete from the database here
+                keys.forEach(productRepository::deleteById);
+            }
+        };
+    }
+
+    private void updateDatabase(Product product) {
+        // Perform the necessary database update logic here
+        productRepository.save(product);
+    }
 	}
 	```
 ## Step 4: update the pom file
@@ -120,7 +159,7 @@ Everyone will need:
     <properties>
         <java.version>21</java.version>
     </properties>
-    <dependencies>
+     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
@@ -150,15 +189,19 @@ Everyone will need:
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>io.projectreactor</groupId>
-            <artifactId>reactor-test</artifactId>
-            <scope>test</scope>
-        </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
+
+        <!-- Redisson -->
+        <dependency>
+            <groupId>org.redisson</groupId>
+            <artifactId>redisson-spring-boot-starter</artifactId>
+            <version>3.16.3</version> <!-- Use the latest version available -->
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -169,7 +212,7 @@ Everyone will need:
                 <configuration>
                     <excludes>
                         <exclude>
-                            <groupId>org.projectlombok</groupId>
+                            <groupId>org.project-lombok</groupId>
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
@@ -180,7 +223,6 @@ Everyone will need:
 
 </project>
 
-
 ```
 
 ## Step 5: Create the Product Entity
@@ -188,20 +230,23 @@ Everyone will need:
 Create a Product entity that represents the product details:
 
 ```java
-@Entity
-@Setter
 @Getter
-@NoArgsConstructor
+@Setter
 @AllArgsConstructor
-public class Product {
+@Entity
+@NoArgsConstructor
+public class Product implements Serializable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String name;
-    private String description;
-    private double price;
-    private boolean available;
 
+    private String name;
+
+    private String description;
+
+    private double price;
+
+    private boolean available;
 }
 ```
 ## Step 6: Create a Product Repository
@@ -219,27 +264,27 @@ Create a ProductService that handles both read and write operations. We will use
 
 @Service
 public class ProductService {
+
     private final ProductRepository productRepository;
 
-    private final RedisTemplate<String, Product> redisTemplate;
+    private final RMapCache<Long, Product> productRMapCache;
 
-    private static final String PRODUCT_CACHE_KEY = "products";
 
-    public ProductService(ProductRepository productRepository, RedisTemplate<String, Product> redisTemplate) {
+    public ProductService(ProductRepository productRepository , RMapCache<Long, Product> productRMapCache) {
         this.productRepository = productRepository;
-        this.redisTemplate = redisTemplate;
+        this.productRMapCache = productRMapCache;
     }
 
-    // cache aside -> read from cache if there is a miss go to DB
+    // Cache-Aside -> Read from cache; if there is a miss, go to DB
     public List<Product> getAllProducts() {
-        List<Product> cachedProducts = redisTemplate.opsForList().range(PRODUCT_CACHE_KEY, 0, -1);
+        List<Product> cachedProducts = (List<Product>) productRMapCache.readAllValues();
 
-        // check cache
+        // Check cache
         if (cachedProducts != null && !cachedProducts.isEmpty()) {
             return cachedProducts;
         }
 
-        // get products from DB
+        // Get products from DB
         List<Product> products = getProductsFromDB();
 
         // Cache the product listings with an expiration time
@@ -250,8 +295,20 @@ public class ProductService {
 
     public void setProductsInCache(List<Product> products) {
         // Set the list of products in the cache with a specified key and expiration time
-        redisTemplate.opsForList().rightPushAll(PRODUCT_CACHE_KEY, products);
-        redisTemplate.expire(PRODUCT_CACHE_KEY, Duration.ofMinutes(10));
+        products.forEach(product -> {
+            productRMapCache.put(product.getId(), product);
+
+            // Add slight jitter to the expiration time (e.g., within 10% of the original duration)
+            // Calculate jitter in milliseconds (e.g., within 10% of the original duration)
+            Duration originalDuration = Duration.ofMinutes(10);
+            Duration jitter = Duration.ofMinutes((long) (originalDuration.toMinutes() * 0.1 * Math.random()));
+            Duration duration = originalDuration.plus(jitter);
+
+            // Set the product expiration with jitter
+            productRMapCache.expire(Instant.now().plus(duration));
+
+
+        });
     }
 
     public List<Product> getProductsFromDB() {
@@ -264,45 +321,19 @@ public class ProductService {
         return productRepository.findAll();
     }
 
-    // Write through -> write on cache then write to DB.
+    // Write-Through -> Write on cache then write to DB
     public Product updateProduct(Product product) {
         updateProductInCache(product);
-        return productRepository.save(product);
+        return product;
     }
 
     private void updateProductInCache(Product product) {
-        int index = findProductIndexInCache(product.getId());
-
-        if (index != -1) {
-            // Update the product in the cached list at the specific index
-            updateCachedProductAtIndex(index, product);
-        }
+        // This will automatically trigger the MapWriter to write to the database
+        productRMapCache.put(product.getId(), product);
     }
-
-    private int findProductIndexInCache(Long productId) {
-        List<Product> cachedProducts = getCachedProducts();
-
-        for (int i = 0; i < cachedProducts.size(); i++) {
-            if (Objects.equals(cachedProducts.get(i).getId(), productId)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private List<Product> getCachedProducts() {
-        return redisTemplate.opsForList().range(PRODUCT_CACHE_KEY, 0, -1);
-    }
-
-    private void updateCachedProductAtIndex(int index, Product product) {
-        redisTemplate.opsForList().set(PRODUCT_CACHE_KEY, index, product);
-        redisTemplate.expire(PRODUCT_CACHE_KEY, Duration.ofMinutes(10));
-    }
-
-
 
     public Optional<Product> getProductById(Long productId) {
-        return productRepository.findById(productId);
+        return Optional.ofNullable(productRMapCache.get(productId));
     }
 }
 
@@ -350,10 +381,11 @@ public class ProductController {
 
 }
 ```
-## Step 9 : Update the main class by adding some product to DB for testing purposes 
+## Step 9 : Update the main class by adding some products to DB for testing purposes 
 
 ```java
 	@SpringBootApplication
+	@EnableCaching
 	public class ProductManagementApplication implements CommandLineRunner {
 	
 	    private final ProductRepository productRepository;
