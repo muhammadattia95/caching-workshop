@@ -3,6 +3,10 @@ Workshop Materials: https://github.com/MuhammadAttia/caching-workshop
 
 Muhammad Attia - Lead Software Engineer @ ELM
 
+
+## Contribution
+If you want to contribute by implementing the same POC using different programming languages such as Golang, PHP, C#, and Node.js,...etc feel free to make a new folder or module and prefix it with the programming language. For example, `go-caching-poc` then opens a pull request to review.
+
 ## Doing the Workshop on Your Own
 
 ### Problem Statment 
@@ -12,7 +16,7 @@ In an e-commerce platform product catalog. often experience heavy read traffic a
 ### Solution
 
 In this scenario, read-aside caching is used to optimize the read-heavy operations, quickly serving users with frequently accessed data from the cache. Write-through caching ensures that data consistency is maintained when product updates occur, preventing the cache from serving outdated information such as price and stock availability.
-This combination allows the e-commerce platform to deliver a responsive user experience while keeping the product catalog data updated. It is a balance between optimizing read performance and maintaining data integrity, making it a suitable strategy for this real-life use case.
+This combination allows the e-commerce platform to deliver a responsive user experience while keeping the product catalog data updated. It balances between optimizing read performance and maintaining data integrity, making it a suitable strategy for this real-life use case.
 
 This guide will help you set up a Spring Boot project that uses Spring Data, Redis for caching, and H2 as an in-memory database. We'll create a simple product catalog management application implementing product listings and update product details using read-aside and write-through caching strategies.
 
